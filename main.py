@@ -1,5 +1,5 @@
 import streamlit as st
-import pyrebase
+import pyrebase4 as pyrebase
 import pandas as pd
 import os
 
