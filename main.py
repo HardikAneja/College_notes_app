@@ -12,7 +12,7 @@ firebaseConfig = {
     "messagingSenderId": "56762847769",
     "appId": "1:56762847769:web:0b43c88570ef3aff125088",
     "measurementId": "G-1186C2E2CY",
-    "databaseURL": ""
+    "databaseURL": "https://college-notes-hub-4416d-default-rtdb.firebaseio.com/"
 }
 
 firebase = pyrebase.initialize_app(firebaseConfig)
