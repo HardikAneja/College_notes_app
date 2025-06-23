@@ -1,3 +1,4 @@
 streamlit
 pandas
-git+https://github.com/nhorvath/Pyrebase4.git
+requests
+git+https://github.com/nhorvath/Pyrebase4.git@master#egg=pyrebase
