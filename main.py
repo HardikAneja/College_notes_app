@@ -30,7 +30,6 @@ if st.button("Login"):
         st.info("🎉 You are now logged in!")
     else:
         st.error("❌ Invalid email or password")
-        st.code(res.text)
 
 
 
