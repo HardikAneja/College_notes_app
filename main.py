@@ -25,11 +25,13 @@ password = st.text_input("Password", type="password")
 if st.button("Login"):
     res = login(email, password)
     if res.status_code == 200:
-        st.success("✅ Login Successful!")
-        st.json(res.json())
+        data = res.json()
+        st.success(f"✅ Welcome {data['email']}")
+        st.info("🎉 You are now logged in!")
     else:
         st.error("❌ Invalid email or password")
         st.code(res.text)
+
 
 
 
