@@ -1,4 +1,4 @@
 streamlit
 pandas
 requests
-git+https://github.com/jakeehs/Pyrebase4-no-gcloud.git
+git+https://github.com/jakeehs/Pyrebase4-no-gcloud.git#egg=pyrebase
