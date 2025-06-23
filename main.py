@@ -1,7 +1,7 @@
+import pyrebase
 import streamlit as st
-import pyrebase as pyrebase
 import pandas as pd
-import os
+
 
 # --- Firebase Config ---
 firebaseConfig = {
