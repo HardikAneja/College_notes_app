@@ -84,7 +84,7 @@ if 'paid' not in st.session_state:
 
 # Dashboard
 def show_dashboard():
-    st.title("📘 College Notes Dashboard")
+    st.title("📘 Goenkan's Notes Dashboard")
     st.success(f"Welcome, {st.session_state['user']}")
     if st.button("🚪 Logout"):
         st.session_state.clear()
