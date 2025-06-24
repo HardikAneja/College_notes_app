@@ -208,7 +208,7 @@ def show_payment():
 
 # Auth
 def show_auth():
-    st.title("🔥Goenka's Notes Hub")
+    st.title("🔥Goenkan's Notes Hub")
     tabs = st.tabs(["🔐 Login", "📝 Signup"])
     with tabs[0]:
         email = st.text_input("Email", key="login_email")
