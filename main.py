@@ -84,7 +84,7 @@ if 'paid' not in st.session_state:
 
 # Dashboard
 def show_dashboard():
-    st.title("📘 Goenkan's Notes Dashboard")
+    st.title("📘 college Notes Dashboard")
     st.success(f"Welcome, {st.session_state['user']}")
     if st.button("🚪 Logout"):
         st.session_state.clear()
@@ -208,7 +208,7 @@ def show_payment():
 
 # Auth
 def show_auth():
-    st.title("🔥 College Notes Hub")
+    st.title("🔥Goenka's Notes Hub")
     tabs = st.tabs(["🔐 Login", "📝 Signup"])
     with tabs[0]:
         email = st.text_input("Email", key="login_email")
