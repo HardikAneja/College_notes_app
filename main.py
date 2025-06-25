@@ -240,9 +240,12 @@ def show_auth():
 # Main
 if not st.session_state['logged_in']:
     show_auth()
-elif not st.session_state['paid'] and st.session_state['user'] != "hardikaneja52@gmail.com":
+elif st.session_state['user'] == "hardikaneja52@gmail.com":
+    show_dashboard()  # ✅ Admin directly to dashboard
+elif not st.session_state['paid']:
     show_payment()
 else:
     show_dashboard()
+
 
 
