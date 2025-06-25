@@ -190,7 +190,7 @@ def show_payment():
                   data-currency="INR"
                   data-order_id="{order['id']}"
                   data-buttontext="Pay ₹199"
-                  data-name="College Notes Hub"
+                  data-name="Goenkan's Notes Hub"
                   data-description="Unlock Notes"
                   data-theme.color="#0a9396">
           </script>
