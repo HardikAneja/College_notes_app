@@ -197,14 +197,16 @@ def show_payment():
         </form>
     """, height=300)
 
+    # ✅ Yahan sahi jagah par button check
     if st.button("✅ I have completed payment"):
-        mark_user_paid(st.session_state['user'])
         if is_user_paid(st.session_state['user']):
             st.session_state['paid'] = True
-            st.success("✅ Payment verified!")
+            st.success("✅ Payment verified successfully!")
             st.rerun()
         else:
-            st.error("❌ Payment not found. Please complete payment.")
+            st.error("❌ Payment not found. Please wait 1-2 minutes or contact admin.")
+
+
 
 # Auth
 def show_auth():
