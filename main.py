@@ -84,7 +84,7 @@ if 'paid' not in st.session_state:
 
 # Dashboard
 def show_dashboard():
-    st.title("📘 college Notes Dashboard")
+    st.title("📘 Goenkan's Notes Dashboard")
     st.success(f"Welcome, {st.session_state['user']}")
     if st.button("🚪 Logout"):
         st.session_state.clear()
@@ -222,7 +222,7 @@ def show_auth():
                 st.success("🎉 Login successful!")
                 st.rerun()
             else:
-                st.error("❌ Invalid credentials")
+                st.error("❌ Invalid Email and Password")
     with tabs[1]:
         email = st.text_input("New Email", key="signup_email")
         password = st.text_input("New Password", type="password", key="signup_pass")
