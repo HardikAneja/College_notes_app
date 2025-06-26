@@ -8,7 +8,9 @@ import datetime
 from firebase_admin import credentials, db
 
 # Firebase init
-if not firebase_admin._apps:
+try:
+    firebase_admin.get_app()
+except ValueError:
     cred = credentials.Certificate({
         "type": st.secrets["firebase"]["type"],
         "project_id": st.secrets["firebase"]["project_id"],
@@ -26,11 +28,6 @@ if not firebase_admin._apps:
         'databaseURL': "https://college-notes-hub-4416d-default-rtdb.firebaseio.com/"
     })
 
-
-    firebase_admin.initialize_app(cred, {
-        'databaseURL': "https://college-notes-hub-4416d-default-rtdb.firebaseio.com/"
-    })
-
 # Razorpay config
 razorpay_client = razorpay.Client(auth=("rzp_test_OJt4GWY0dnYC7l", "6JKAlW283xDqs6rg7aTtKz07"))
 
@@ -41,7 +38,8 @@ SIGNUP_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={AP
 
 # Helper functions
 def email_key(email):
-    return email.replace(".", "_")
+    return email.replace(".", "_").replace("@", "_at_")
+
 
 def is_user_paid(email):
     ref = db.reference(f"users/{email_key(email)}")
