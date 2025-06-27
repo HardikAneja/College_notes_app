@@ -5,6 +5,11 @@ import os
 import razorpay
 import firebase_admin
 import datetime
+import random
+import uuid
+import smtplib
+import ssl
+from email.message import EmailMessage
 from firebase_admin import credentials, db
 
 # Firebase init
@@ -40,7 +45,6 @@ SIGNUP_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={AP
 def email_key(email):
     return email.replace(".", "_").replace("@", "_at_")
 
-
 def is_user_paid(email):
     ref = db.reference(f"users/{email_key(email)}")
     data = ref.get()
@@ -71,12 +75,33 @@ def signup(email, password):
         "returnSecureToken": True
     }))
 
-SEMESTERS_MAP = {
-    "BCA": [f"Sem {i}" for i in range(1, 7)],
-    "BBA": [f"Sem {i}" for i in range(1, 7)],
-    "MBA": [f"Sem {i}" for i in range(1, 5)],
-    "B.Tech": [f"Sem {i}" for i in range(1, 9)]
-}
+def send_otp(email):
+    otp = str(random.randint(100000, 999999))
+    db.reference(f"users/{email_key(email)}/otp").set(otp)
+    msg = EmailMessage()
+    msg['Subject'] = "Your OTP for Notes Hub Login"
+    msg['From'] = st.secrets["email"]["sender"]
+    msg['To'] = email
+    msg.set_content(f"Your OTP is: {otp}\n\nDo not share this with anyone.")
+
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+        server.login(st.secrets["email"]["sender"], st.secrets["email"]["password"])
+        server.send_message(msg)
+    return otp
+
+def verify_otp(email, input_otp):
+    real = db.reference(f"users/{email_key(email)}/otp").get()
+    return str(input_otp) == str(real)
+
+def update_session(email):
+    sid = str(uuid.uuid4())
+    db.reference(f"users/{email_key(email)}/session_id").set(sid)
+    return sid
+
+def is_same_session(email, current_id):
+    saved = db.reference(f"users/{email_key(email)}/session_id").get()
+    return saved == current_id
 
 # Session init
 if 'logged_in' not in st.session_state:
@@ -84,7 +109,52 @@ if 'logged_in' not in st.session_state:
 if 'paid' not in st.session_state:
     st.session_state['paid'] = False
 
-# Dashboard
+# Auth
+if not st.session_state['logged_in']:
+    st.title("🔥Goenkan's Notes Hub")
+    tabs = st.tabs(["🔐 Login", "📝 Signup"])
+
+    with tabs[0]:
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input("Password", type="password", key="login_pass")
+        if st.button("✅ Login"):
+            res = login(email, password)
+            if res.status_code == 200:
+                send_otp(email)
+                otp = st.text_input("📩 Enter OTP", max_chars=6)
+                if st.button("🔐 Verify OTP"):
+                    if verify_otp(email, otp):
+                        sid = update_session(email)
+                        st.session_state['logged_in'] = True
+                        st.session_state['user'] = email
+                        st.session_state['session_id'] = sid
+                        st.session_state['paid'] = is_user_paid(email)
+                        st.success("🎉 Logged in successfully with OTP!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Invalid OTP")
+            else:
+                st.error("❌ Invalid email or password")
+
+    with tabs[1]:
+        email = st.text_input("New Email", key="signup_email")
+        password = st.text_input("New Password", type="password", key="signup_pass")
+        if st.button("📝 Signup"):
+            res = signup(email, password)
+            if res.status_code == 200:
+                st.success("✅ Signup successful! Please login.")
+            elif "EMAIL_EXISTS" in res.text:
+                st.warning("⚠️ Email already exists.")
+            else:
+                st.error("❌ Signup failed.")
+
+# Session Verification
+if st.session_state.get("logged_in") and not is_same_session(st.session_state['user'], st.session_state.get('session_id')):
+    st.error("⚠️ You've been logged out because your account was accessed from another device.")
+    st.session_state.clear()
+    st.rerun()
+
+# Place your existing show_dashboard() and show_payment() functions after this point
 def show_dashboard():
     st.title("📘 Goenkan's Notes Dashboard")
     st.success(f"Welcome, {st.session_state['user']}")
@@ -168,21 +238,14 @@ def show_dashboard():
             else:
                 st.warning("⚠️ Please enter subject name.")
 
-# Payment
+# Show Payment
 def show_payment():
     st.title("💳 ₹199 Payment for Full Access")
     order = razorpay_client.order.create({
-        "amount": 19900, "currency": "INR", "payment_capture": 1
+        "amount": 19900,
+        "currency": "INR",
+        "payment_capture": 1
     })
-
-    st.markdown("""
-        <style>
-        .razorpay-form-container {
-            margin-bottom: -30px;
-        }
-        </style>
-        <div class="razorpay-form-container"></div>
-    """, unsafe_allow_html=True)
 
     st.components.v1.html(f"""
         <form>
@@ -194,19 +257,30 @@ def show_payment():
                   data-buttontext="Pay ₹199"
                   data-name="Goenkan's Notes Hub"
                   data-description="Unlock Notes"
+                  data-prefill.name="User"
+                  data-prefill.email="{st.session_state['user']}"
                   data-theme.color="#0a9396">
           </script>
         </form>
     """, height=300)
 
-    # ✅ Yahan sahi jagah par button check
+    st.warning("🕐 After payment, wait 30 seconds and then click below.")
+
     if st.button("✅ I have completed payment"):
-        if is_user_paid(st.session_state['user']):
-            st.session_state['paid'] = True
-            st.success("✅ Payment verified successfully!")
-            st.rerun()
-        else:
-            st.error("❌ Payment not found. Please wait 1-2 minutes or contact admin.")
+        try:
+            # 🔍 Fetch all Razorpay payments
+            payments = razorpay_client.payment.fetch_all()
+            for p in payments['items']:
+                if p['email'] == st.session_state['user'] and p['status'] == 'captured':
+                    mark_user_paid(st.session_state['user'])
+                    st.session_state['paid'] = True
+                    st.success("✅ Payment verified automatically!")
+                    st.rerun()
+                    return
+            st.error("❌ Payment not found. Please wait a bit or contact admin.")
+        except Exception as e:
+            st.error(f"❌ Error verifying payment: {e}")
+
 
 
 
@@ -218,17 +292,25 @@ def show_auth():
     with tabs[0]:
         email = st.text_input("Email", key="login_email")
         password = st.text_input("Password", type="password", key="login_pass")
-        if st.button("✅ Login"):
-            res = login(email, password)
-            if res.status_code == 200:
+        if st.session_state.get('otp_pending'):
+            otp_input = st.text_input("🔒 Enter OTP")
+    if st.button("🔓 Verify OTP"):
+        email = st.session_state['temp_user']
+        if verify_otp(email, otp_input):
+            if is_session_valid(email, st.session_state['session_id']):
                 st.session_state['logged_in'] = True
                 st.session_state['user'] = email
                 st.session_state['paid'] = is_user_paid(email)
-                st.success("🎉 Login successful!")
-                st.write("Debug:", email_key(email))  # 👈 yeh line temporary debugging ke liye
+                st.success("✅ OTP verified. Login successful!")
+                # Clean up temp states
+                st.session_state.pop('otp_pending', None)
+                st.session_state.pop('temp_user', None)
                 st.rerun()
             else:
-                st.error("❌ Invalid Email and Password")
+                st.error("⚠️ Session expired due to login from another device.")
+        else:
+            st.error("❌ Invalid OTP. Please try again.")
+
 
     with tabs[1]:
         email = st.text_input("New Email", key="signup_email")
@@ -243,6 +325,11 @@ def show_auth():
                 st.error("❌ Signup failed.")
 
 
+                st.markdown("---")
+    st.subheader("📞 Contact Admin")
+    st.info("✉️ Email: hardikaneja52@gmail.com")
+
+
 # Main
 if not st.session_state['logged_in']:
     show_auth()
@@ -252,6 +339,4 @@ elif not st.session_state['paid']:
     show_payment()
 else:
     show_dashboard()
-
-
 
