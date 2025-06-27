@@ -214,6 +214,7 @@ def show_payment():
 def show_auth():
     st.title("🔥Goenkan's Notes Hub")
     tabs = st.tabs(["🔐 Login", "📝 Signup"])
+
     with tabs[0]:
         email = st.text_input("Email", key="login_email")
         password = st.text_input("Password", type="password", key="login_pass")
@@ -224,9 +225,11 @@ def show_auth():
                 st.session_state['user'] = email
                 st.session_state['paid'] = is_user_paid(email)
                 st.success("🎉 Login successful!")
+                st.write("Debug:", email_key(email))  # 👈 yeh line temporary debugging ke liye
                 st.rerun()
             else:
                 st.error("❌ Invalid Email and Password")
+
     with tabs[1]:
         email = st.text_input("New Email", key="signup_email")
         password = st.text_input("New Password", type="password", key="signup_pass")
@@ -238,6 +241,7 @@ def show_auth():
                 st.warning("⚠️ Email already exists.")
             else:
                 st.error("❌ Signup failed.")
+
 
 # Main
 if not st.session_state['logged_in']:
