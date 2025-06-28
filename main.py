@@ -299,7 +299,7 @@ def show_payment():
 if not st.session_state['logged_in']:
     show_auth()
 
-elif not is_same_session(st.session_state['user'], st.session_state['session_id']):
+elif 'session_id' in st.session_state and not is_same_session(st.session_state['user'], st.session_state['session_id']):
     st.error("⚠️ You've been logged out due to login on another device.")
     st.session_state.clear()
     st.rerun()
@@ -313,5 +313,6 @@ elif not st.session_state['paid']:
 
 else:
     show_dashboard()
+
 
 
