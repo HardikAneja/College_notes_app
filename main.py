@@ -12,7 +12,7 @@ import ssl
 from email.message import EmailMessage
 from firebase_admin import credentials, db
 
-# Firebase init
+# -------------------- Firebase Init --------------------
 try:
     firebase_admin.get_app()
 except ValueError:
@@ -33,15 +33,15 @@ except ValueError:
         'databaseURL': "https://college-notes-hub-4416d-default-rtdb.firebaseio.com/"
     })
 
-# Razorpay config
+# -------------------- Razorpay --------------------
 razorpay_client = razorpay.Client(auth=("rzp_test_OJt4GWY0dnYC7l", "6JKAlW283xDqs6rg7aTtKz07"))
 
-# Firebase Auth API
+# -------------------- Firebase Auth --------------------
 API_KEY = "AIzaSyBZTahQjGw8Hurd1X1lnxghySR4MAl9aC0"
 SIGNIN_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={API_KEY}"
 SIGNUP_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={API_KEY}"
 
-# Helper functions
+# -------------------- Utility Functions --------------------
 def email_key(email):
     return email.replace(".", "_").replace("@", "_at_")
 
@@ -103,38 +103,59 @@ def is_same_session(email, current_id):
     saved = db.reference(f"users/{email_key(email)}/session_id").get()
     return saved == current_id
 
-# Session init
-if 'logged_in' not in st.session_state:
-    st.session_state['logged_in'] = False
-if 'paid' not in st.session_state:
-    st.session_state['paid'] = False
+# -------------------- Session State Init --------------------
+for key, val in {
+    "logged_in": False,
+    "paid": False,
+    "otp_pending": False,
+    "temp_user": None,
+    "session_id": None
+}.items():
+    if key not in st.session_state:
+        st.session_state[key] = val
 
-# Auth
-if not st.session_state['logged_in']:
-    st.title("🔥Goenkan's Notes Hub")
+# -------------------- SEMESTER MAPPING --------------------
+SEMESTERS_MAP = {
+    "BCA": ["Semester 1", "Semester 2", "Semester 3", "Semester 4", "Semester 5", "Semester 6"],
+    "B.Tech": ["Semester 1", "Semester 2", "Semester 3", "Semester 4", "Semester 5", "Semester 6", "Semester 7", "Semester 8"]
+}
+
+# -------------------- AUTH --------------------
+def show_auth():
+    st.title("🔥 Goenkan's Notes Hub")
     tabs = st.tabs(["🔐 Login", "📝 Signup"])
 
     with tabs[0]:
-        email = st.text_input("Email", key="login_email")
-        password = st.text_input("Password", type="password", key="login_pass")
-        if st.button("✅ Login"):
-            res = login(email, password)
-            if res.status_code == 200:
-                send_otp(email)
-                otp = st.text_input("📩 Enter OTP", max_chars=6)
-                if st.button("🔐 Verify OTP"):
-                    if verify_otp(email, otp):
-                        sid = update_session(email)
+        if not st.session_state['otp_pending']:
+            email = st.text_input("Email", key="login_email")
+            password = st.text_input("Password", type="password", key="login_pass")
+            if st.button("✅ Login"):
+                res = login(email, password)
+                if res.status_code == 200:
+                    send_otp(email)
+                    st.session_state['otp_pending'] = True
+                    st.session_state['temp_user'] = email
+                    st.session_state['session_id'] = update_session(email)
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid email or password")
+        else:
+            otp_input = st.text_input("🔒 Enter OTP", key="otp_input")
+            if st.button("🔓 Verify OTP") and otp_input:
+                email = st.session_state['temp_user']
+                if verify_otp(email, otp_input):
+                    if is_same_session(email, st.session_state['session_id']):
                         st.session_state['logged_in'] = True
                         st.session_state['user'] = email
-                        st.session_state['session_id'] = sid
                         st.session_state['paid'] = is_user_paid(email)
-                        st.success("🎉 Logged in successfully with OTP!")
+                        st.success("✅ Login Successful!")
+                        st.session_state['otp_pending'] = False
+                        st.session_state['temp_user'] = None
                         st.rerun()
                     else:
-                        st.error("❌ Invalid OTP")
-            else:
-                st.error("❌ Invalid email or password")
+                        st.error("⚠️ Session expired. Try again.")
+                else:
+                    st.error("❌ Wrong OTP")
 
     with tabs[1]:
         email = st.text_input("New Email", key="signup_email")
@@ -142,22 +163,21 @@ if not st.session_state['logged_in']:
         if st.button("📝 Signup"):
             res = signup(email, password)
             if res.status_code == 200:
-                st.success("✅ Signup successful! Please login.")
+                st.success("✅ Signup Successful. Now login.")
             elif "EMAIL_EXISTS" in res.text:
                 st.warning("⚠️ Email already exists.")
             else:
                 st.error("❌ Signup failed.")
 
-# Session Verification
-if st.session_state.get("logged_in") and not is_same_session(st.session_state['user'], st.session_state.get('session_id')):
-    st.error("⚠️ You've been logged out because your account was accessed from another device.")
-    st.session_state.clear()
-    st.rerun()
+    st.markdown("---")
+    st.subheader("📞 Contact Admin")
+    st.info("✉️ hardikaneja52@gmail.com")
 
-# Place your existing show_dashboard() and show_payment() functions after this point
+# -------------------- DASHBOARD --------------------
 def show_dashboard():
     st.title("📘 Goenkan's Notes Dashboard")
     st.success(f"Welcome, {st.session_state['user']}")
+
     if st.button("🚪 Logout"):
         st.session_state.clear()
         st.rerun()
@@ -181,24 +201,23 @@ def show_dashboard():
                 os.makedirs(folder, exist_ok=True)
                 with open(os.path.join(folder, f"{subject}.pdf"), "wb") as f:
                     f.write(uploaded_file.getbuffer())
-                st.success("✅ Notes uploaded.")
+                st.success("✅ Notes uploaded successfully.")
             else:
-                st.warning("⚠️ Please complete all fields.")
+                st.warning("⚠️ Please fill all fields.")
 
         st.subheader("📩 Notes Requests")
         requests_ref = db.reference("notes_requests").get() or {}
         if not requests_ref:
-            st.info("🎉 No new requests.")
+            st.info("🎉 No requests.")
         else:
             for key, req in requests_ref.items():
                 date = req.get("requested_on", "📆 Unknown date")
-                with st.expander(f"📌 {req['course']} - {req['semester']} - {req['subject']} (📧 {req['email']})"):
+                with st.expander(f"{req['course']} - {req['semester']} - {req['subject']} (📧 {req['email']})"):
                     st.write(f"🗓️ Requested On: {date}")
-                    if st.button("✅ Mark as Fulfilled", key=key):
+                    if st.button("✅ Fulfilled", key=key):
                         db.reference(f"notes_requests/{key}").delete()
-                        st.success("Request removed!")
+                        st.success("Removed request.")
                         st.rerun()
-
     else:
         st.subheader("📚 Download Notes")
         course = st.selectbox("Course", list(SEMESTERS_MAP.keys()))
@@ -207,19 +226,15 @@ def show_dashboard():
         if os.path.exists(folder):
             files = os.listdir(folder)
             search = st.text_input("🔍 Search by subject")
-            found = False
             for file in files:
                 if search.lower() in file.lower():
-                    found = True
                     with open(os.path.join(folder, file), "rb") as f:
-                        st.download_button(f"📥 Download {file.replace('.pdf','')}", f, file_name=file)
-            if not found and search:
-                st.error("❌ Notes not found.")
+                        st.download_button(f"📥 {file}", f, file_name=file)
         else:
-            st.info("📭 No notes found for this semester.")
+            st.info("📭 No notes found.")
 
         st.markdown("---")
-        st.subheader("📩 Can't find your notes? Request here")
+        st.subheader("📩 Request Notes")
         course_req = st.selectbox("Request Course", list(SEMESTERS_MAP.keys()), key="req_course")
         sem_req = st.selectbox("Request Semester", SEMESTERS_MAP[course_req], key="req_sem")
         subject_req = st.text_input("Requested Subject", key="req_subject")
@@ -234,11 +249,11 @@ def show_dashboard():
                     "subject": subject_req,
                     "requested_on": now
                 })
-                st.success("🎉 Your request has been submitted!")
+                st.success("🎉 Request Submitted.")
             else:
-                st.warning("⚠️ Please enter subject name.")
+                st.warning("⚠️ Please enter subject.")
 
-# Show Payment
+# -------------------- PAYMENT --------------------
 def show_payment():
     st.title("💳 ₹199 Payment for Full Access")
     order = razorpay_client.order.create({
@@ -257,7 +272,6 @@ def show_payment():
                   data-buttontext="Pay ₹199"
                   data-name="Goenkan's Notes Hub"
                   data-description="Unlock Notes"
-                  data-prefill.name="User"
                   data-prefill.email="{st.session_state['user']}"
                   data-theme.color="#0a9396">
           </script>
@@ -265,78 +279,30 @@ def show_payment():
     """, height=300)
 
     st.warning("🕐 After payment, wait 30 seconds and then click below.")
-
     if st.button("✅ I have completed payment"):
         try:
-            # 🔍 Fetch all Razorpay payments
             payments = razorpay_client.payment.fetch_all()
             for p in payments['items']:
-                if p['email'] == st.session_state['user'] and p['status'] == 'captured':
+                if p.get('email') == st.session_state['user'] and p['status'] == 'captured':
                     mark_user_paid(st.session_state['user'])
                     st.session_state['paid'] = True
-                    st.success("✅ Payment verified automatically!")
+                    st.success("✅ Payment Verified!")
                     st.rerun()
                     return
-            st.error("❌ Payment not found. Please wait a bit or contact admin.")
+            st.error("❌ Payment not found.")
         except Exception as e:
             st.error(f"❌ Error verifying payment: {e}")
 
-
-
-
-# Auth
-def show_auth():
-    st.title("🔥Goenkan's Notes Hub")
-    tabs = st.tabs(["🔐 Login", "📝 Signup"])
-
-    with tabs[0]:
-        email = st.text_input("Email", key="login_email")
-        password = st.text_input("Password", type="password", key="login_pass")
-        if st.session_state.get('otp_pending'):
-            otp_input = st.text_input("🔒 Enter OTP")
-    if st.button("🔓 Verify OTP"):
-        email = st.session_state['temp_user']
-        if verify_otp(email, otp_input):
-            if is_session_valid(email, st.session_state['session_id']):
-                st.session_state['logged_in'] = True
-                st.session_state['user'] = email
-                st.session_state['paid'] = is_user_paid(email)
-                st.success("✅ OTP verified. Login successful!")
-                # Clean up temp states
-                st.session_state.pop('otp_pending', None)
-                st.session_state.pop('temp_user', None)
-                st.rerun()
-            else:
-                st.error("⚠️ Session expired due to login from another device.")
-        else:
-            st.error("❌ Invalid OTP. Please try again.")
-
-
-    with tabs[1]:
-        email = st.text_input("New Email", key="signup_email")
-        password = st.text_input("New Password", type="password", key="signup_pass")
-        if st.button("📝 Signup"):
-            res = signup(email, password)
-            if res.status_code == 200:
-                st.success("✅ Signup done! Now login.")
-            elif "EMAIL_EXISTS" in res.text:
-                st.warning("⚠️ Email already exists.")
-            else:
-                st.error("❌ Signup failed.")
-
-
-                st.markdown("---")
-    st.subheader("📞 Contact Admin")
-    st.info("✉️ Email: hardikaneja52@gmail.com")
-
-
-# Main
+# -------------------- MAIN --------------------
 if not st.session_state['logged_in']:
     show_auth()
+elif not is_same_session(st.session_state['user'], st.session_state['session_id']):
+    st.error("⚠️ You've been logged out due to login on another device.")
+    st.session_state.clear()
+    st.rerun()
 elif st.session_state['user'] == "hardikaneja52@gmail.com":
-    show_dashboard()  # ✅ Admin directly to dashboard
+    show_dashboard()
 elif not st.session_state['paid']:
     show_payment()
 else:
     show_dashboard()
-
