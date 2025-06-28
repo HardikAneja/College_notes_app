@@ -294,15 +294,22 @@ def show_payment():
             st.error(f"❌ Error verifying payment: {e}")
 
 # -------------------- MAIN --------------------
+# 🚀 MAIN ROUTING (without removing logout-on-new-device feature)
 if not st.session_state['logged_in']:
     show_auth()
+
 elif not is_same_session(st.session_state['user'], st.session_state['session_id']):
     st.error("⚠️ You've been logged out due to login on another device.")
     st.session_state.clear()
     st.rerun()
+
 elif st.session_state['user'] == "hardikaneja52@gmail.com":
+    st.session_state['paid'] = True  # ✅ Force admin as paid
     show_dashboard()
+
 elif not st.session_state['paid']:
     show_payment()
+
 else:
     show_dashboard()
+
